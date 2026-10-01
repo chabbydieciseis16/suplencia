@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Suplencias - Reporte Mistletoe Green</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Color Mistletoe Green personalizado */
+        .bg-mistletoe {
+            background-color: #4E6E58 !important;
+            color: #ffffff !important;
+        }
+
+        /* Encabezado Fijo (Sticky) al hacer Scroll */
+        .tabla-encabezado-fijo th {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background-color: #4E6E58 !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Filas de altura uniforme y compresión de texto al ancho del campo */
+        .tabla-uniforme {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .tabla-uniforme tr {
+            height: 38px; /* Altura idéntica para todas las filas */
+        }
+
+        .tabla-uniforme td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+
+        /* Estilos de Impresión / PDF */
+        @media print {
+            @page {
+                size: letter portrait;
+                margin: 0.4cm 0.5cm;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 6.5pt !important;
+            }
+            .no-imprimir, header, #panel-controles, #cargando, button {
+                display: none !important;
+            }
+            #seccion-tabla {
+                border: none !important;
+                box-shadow: none !important;
+                width: 100% !important;
+            }
+            .tabla-encabezado-fijo th {
+                position: static !important;
+                background-color: #4E6E58 !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                font-size: 7pt !important;
+            }
+            .tabla-uniforme tr {
+                height: 18px !important;
+            }
+            .tabla-uniforme td {
+                border: 0.4pt solid #64748b !important;
+                padding: 1px 3px !important;
+                font-size: 6.5pt !important;
+            }
+            .encabezado-impresion {
+                display: block !important;
+                margin-bottom: 4px;
+                text-align: center;
+            }
+        }
+
+        .encabezado-impresion {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 pb-10">
+
+    <!-- Encabezado Principal (Se oculta al imprimir) -->
+    <header class="bg-indigo-900 text-white shadow-lg p-6 mb-6 no-imprimir">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold flex items-center gap-3">
+                    <i class="fa-solid fa-file-invoice text-amber-400"></i> Control de Suplencias
+                </h1>
+                <p class="text-indigo-200 text-sm mt-1">Listado único continuo con encabezado fijo y Mistletoe Green</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-emerald-400 shadow cursor-pointer">
+                    <i class="fa-solid fa-print"></i> Imprimir / PDF
+                </button>
+                <button onclick="cargarDatos()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-indigo-400 shadow cursor-pointer">
+                    <i class="fa-solid fa-rotate" id="refresh-icon"></i> Actualizar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4">
+
+        <!-- Encabezado Visible Solo al Imprimir -->
+        <div class="encabezado-impresion border-b border-slate-800 pb-1">
+            <h1 class="text-xs font-black text-slate-900 uppercase tracking-tight">Reporte General de Personal y Suplencias</h1>
+            <p class="text-[6pt] text-slate-600" id="info-filtro-impresion">Filtrado por función y ordenado por antigüedad</p>
+        </div>
+
+        <!-- Panel de Filtros -->
+        <div id="panel-controles" class="bg-white p-6 rounded-2xl shadow-md border border-slate-200 mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Selector de Función -->
+            <div>
+                <label for="select-funcion" class="block text-sm font-extrabold text-indigo-900 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-indigo-600"></i> Seleccionar Función:
+                </label>
+                <select id="select-funcion" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-xl p-4 text-lg md:text-xl font-bold text-slate-800 focus:ring-4 focus:ring-indigo-200 focus:border-indigo-600 outline-none cursor-pointer shadow-sm">
+                    <option value="TODOS">-- TODAS LAS FUNCIONES (LISTADO CONTINUO) --</option>
+                </select>
+            </div>
+
+            <!-- Buscador por Texto y Contador -->
+            <div class="flex flex-col justify-between">
+                <div>
+                    <label for="filter-search" class="block text-sm font-bold text-slate-700 mb-2">Búsqueda General:</label>
+                    <input type="text" id="filter-search" oninput="aplicarFiltros()" placeholder="Buscar por Nombre, CURP, Municipio, Adscripción..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="mt-3 text-right text-sm font-bold text-slate-600">
+                    Total Filtrado: <span id="cant-registros" class="text-emerald-700 font-extrabold text-lg">0</span> persona(s)
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Única Continua con Encabezado Fijo -->
+        <div id="seccion-tabla" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden max-h-[75vh] overflow-y-auto">
+            <table class="tabla-uniforme text-left border-collapse">
+                <thead class="tabla-encabezado-fijo">
+                    <tr>
+                        <th class="w-[4%] text-center">#</th>
+                        <th class="w-[26%]">Nombre Completo</th>
+                        <th class="w-[7%] text-center">Edad</th>
+                        <th class="w-[18%]">CURP</th>
+                        <th class="w-[15%]">Función</th>
+                        <th class="w-[8%] text-center font-bold">Antigüedad</th>
+                        <th class="w-[14%]">Lugar de Trabajo</th>
+                        <th class="w-[8%]">Municipio</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuerpo" class="divide-y divide-slate-200">
+                    <!-- Filas cargadas dinámicamente -->
+                </tbody>
+            </table>
+
+            <!-- Indicador de Carga -->
+            <div id="cargando" class="p-12 text-center text-slate-500">
+                <i class="fa-solid fa-spinner fa-spin text-4xl text-emerald-600 mb-3"></i>
+                <p class="font-bold">Cargando base de datos desde Google Sheets...</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzQ9pyDndvEHYS18wDcrxKh4_-J7m5uDagJXx9_2JeS3ADkaHRtaNjKHMJeryE-k5hR/exec';
+
+        let datosOriginales = [];
+
+        document.addEventListener('DOMContentLoaded', cargarDatos);
+
+        function cargarDatos() {
+            document.getElementById('cargando').classList.remove('hidden');
+            const icon = document.getElementById('refresh-icon');
+            if(icon) icon.classList.add('fa-spin');
+
+            fetch(WEB_APP_URL)
+                .then(res => res.json())
+                .then(data => {
+                    datosOriginales = data.map(row => {
+                        let antTexto = String(row['ANTIGÜEDAD'] || '0 AÑOS');
+                        let antNum = parseInt(antTexto) || 0;
+
+                        return {
+                            _rowNumber: row._rowNumber,
+                            nombreCompleto: `${row['NOMBRES'] || ''} ${row['APELLIDO PATERNO'] || ''} ${row['APELLIDO MATERNO'] || ''}`.trim(),
+                            edad: row['EDAD'] || 'N/A',
+                            curp: row['CURP'] || 'N/A',
+                            funcion: String(row['FUNCION'] || 'SIN FUNCIÓN').trim(),
+                            antiguedadTexto: antTexto,
+                            antiguedadNum: antNum,
+                            adscripcion: row['LUGAR DE ADSCRIPCIÓN'] || 'N/A',
+                            municipio: row['MUNICIPIO'] || 'N/A'
+                        };
+                    });
+
+                    poblarSelectFunciones();
+                    aplicarFiltros();
+
+                    document.getElementById('cargando').classList.add('hidden');
+                    if(icon) icon.classList.remove('fa-spin');
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('cargando').innerHTML = '<p class="text-red-600 font-bold p-4">Error al conectar con la API Web.</p>';
+                });
+        }
+
+        function poblarSelectFunciones() {
+            const select = document.getElementById('select-funcion');
+            select.innerHTML = '<option value="TODOS">-- TODAS LAS FUNCIONES (LISTADO CONTINUO) --</option>';
+
+            const funcionesSet = new Set();
+            datosOriginales.forEach(d => {
+                if (d.funcion) funcionesSet.add(d.funcion);
+            });
+
+            Array.from(funcionesSet).sort().forEach(func => {
+                const opt = document.createElement('option');
+                opt.value = func;
+                opt.textContent = func;
+                select.appendChild(opt);
+            });
+        }
+
+        function aplicarFiltros() {
+            const funcionSeleccionada = document.getElementById('select-funcion').value;
+            const search = document.getElementById('filter-search').value.toLowerCase();
+
+            let resultado = datosOriginales.filter(item => {
+                const matchFuncion = (funcionSeleccionada === 'TODOS') || (item.funcion === funcionSeleccionada);
+                const matchSearch = !search || 
+                    item.nombreCompleto.toLowerCase().includes(search) || 
+                    item.curp.toLowerCase().includes(search) || 
+                    item.municipio.toLowerCase().includes(search) ||
+                    item.adscripcion.toLowerCase().includes(search);
+
+                return matchFuncion && matchSearch;
+            });
+
+            // Ordenar por Antigüedad de Mayor a Menor
+            resultado.sort((a, b) => b.antiguedadNum - a.antiguedadNum);
+
+            document.getElementById('cant-registros').innerText = resultado.length;
+            document.getElementById('info-filtro-impresion').innerText = 
+                `Reporte: ${funcionSeleccionada === 'TODOS' ? 'Todas las Funciones' : funcionSeleccionada} | Total: ${resultado.length} registros | Fecha: ${new Date().toLocaleDateString()}`;
+
+            renderizarTablaUnica(resultado);
+        }
+
+        function renderizarTablaUnica(lista) {
+            const tbody = document.getElementById('tabla-cuerpo');
+            tbody.innerHTML = '';
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-400 font-medium">No se encontraron registros.</td></tr>`;
+                return;
+            }
+
+            lista.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-emerald-50/50 transition border-b border-slate-200";
+
+                tr.innerHTML = `
+                    <td class="text-center font-bold text-slate-400">${idx + 1}</td>
+                    <td class="font-bold text-slate-900" title="${item.nombreCompleto}">${item.nombreCompleto}</td>
+                    <td class="text-center"><span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${item.edad}</span></td>
+                    <td class="font-mono text-slate-600" title="${item.curp}">${item.curp}</td>
+                    <td class="font-semibold text-slate-800" title="${item.funcion}">${item.funcion}</td>
+                    <td class="text-center font-extrabold text-emerald-800 bg-emerald-50/60">${item.antiguedadTexto}</td>
+                    <td class="text-slate-700 font-medium" title="${item.adscripcion}">${item.adscripcion}</td>
+                    <td class="font-semibold text-slate-600" title="${item.municipio}">${item.municipio}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
