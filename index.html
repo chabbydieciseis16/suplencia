@@ -1,292 +1,1036 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Suplencias - Reporte Mistletoe Green</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome para iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* Color Mistletoe Green personalizado */
-        .bg-mistletoe {
-            background-color: #4E6E58 !important;
-            color: #ffffff !important;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Suplencias - Mistletoe Green</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  .bg-mistletoe { background-color:#4E6E58 !important; color:#fff !important; }
 
-        /* Encabezado Fijo (Sticky) al hacer Scroll */
-        .tabla-encabezado-fijo th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: #4E6E58 !important;
-            color: #ffffff !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+  /* Encabezado sticky tabla desktop */
+  .tabla-encabezado-fijo th {
+    position: sticky; top: 0; z-index: 20;
+    background-color:#4E6E58 !important; color:#fff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  }
 
-        /* Filas de altura uniforme y compresión de texto al ancho del campo */
-        .tabla-uniforme {
-            table-layout: fixed;
-            width: 100%;
-        }
+  .tabla-uniforme { table-layout: fixed; width: 100%; }
+  .tabla-uniforme tr { height: 40px; }
+  .tabla-uniforme td {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    vertical-align: middle; font-size: 12px; padding: 4px 8px;
+  }
 
-        .tabla-uniforme tr {
-            height: 38px; /* Altura idéntica para todas las filas */
-        }
+  /* Pestañas */
+  .tab-btn {
+    padding: 10px 16px; border-radius: 12px 12px 0 0;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    border: 2px solid transparent; background: #e2e8f0; color:#475569;
+    transition: all .2s; white-space: nowrap;
+  }
+  .tab-btn.activo {
+    background: #4E6E58; color: #fff; border-color:#3a5343;
+    box-shadow: 0 -2px 8px rgba(78,110,88,.3);
+  }
+  .tab-btn:hover:not(.activo) { background:#cbd5e1; }
 
-        .tabla-uniforme td {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            vertical-align: middle;
-            font-size: 11px;
-            padding: 4px 8px;
-        }
+  /* Checkbox / inputs */
+  .chk-pago { width: 22px; height: 22px; accent-color:#4E6E58; cursor:pointer; }
+  .inp-monto {
+    width: 82px; text-align:right; font-weight:700; font-size:12px;
+    border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px;
+  }
+  .inp-monto:focus { outline: 2px solid #4E6E58; border-color:#4E6E58; }
 
-        /* Estilos de Impresión / PDF */
-        @media print {
-            @page {
-                size: letter portrait;
-                margin: 0.4cm 0.5cm;
-            }
-            body {
-                background-color: #ffffff !important;
-                color: #000000 !important;
-                font-size: 6.5pt !important;
-            }
-            .no-imprimir, header, #panel-controles, #cargando, button {
-                display: none !important;
-            }
-            #seccion-tabla {
-                border: none !important;
-                box-shadow: none !important;
-                width: 100% !important;
-            }
-            .tabla-encabezado-fijo th {
-                position: static !important;
-                background-color: #4E6E58 !important;
-                color: #ffffff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                font-size: 7pt !important;
-            }
-            .tabla-uniforme tr {
-                height: 18px !important;
-            }
-            .tabla-uniforme td {
-                border: 0.4pt solid #64748b !important;
-                padding: 1px 3px !important;
-                font-size: 6.5pt !important;
-            }
-            .encabezado-impresion {
-                display: block !important;
-                margin-bottom: 4px;
-                text-align: center;
-            }
-        }
+  tr.fila-pagada td { background-color: #ecfdf5; }
+  tr.fila-no-pagada td { background-color: #fef2f2; }
 
-        .encabezado-impresion {
-            display: none;
-        }
-    </style>
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: #4E6E58; color:#fff; padding: 12px 20px; border-radius: 12px;
+    font-weight: 700; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    transform: translateY(120%); transition: transform .3s ease;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); }
+  #toast.err { background:#dc2626; }
+
+  /* ============ MÓVIL: tarjetas ============ */
+  @media (max-width: 767px) {
+    .tabla-wrap { display: none !important; }
+    .cards-wrap { display: block !important; }
+    .tarjeta {
+      background:#fff; border-radius: 14px; padding: 12px 14px;
+      border-left: 4px solid #cbd5e1; margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .tarjeta.pagada   { border-left-color: #059669; background:#f0fdf4; }
+    .tarjeta.no-pagada{ border-left-color: #dc2626; background:#fef2f2; }
+    .tarjeta h3 { font-size: 14px; font-weight: 800; color:#0f172a; margin-bottom: 4px; }
+    .tarjeta .fila-dato { font-size: 11px; color:#475569; display:flex; justify-content:space-between; margin: 2px 0; }
+    .tarjeta .fila-dato strong { color:#1e293b; }
+    .tarjeta .acciones { display:flex; gap:8px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; }
+  }
+  .cards-wrap { display: none; }
+
+  /* ===================== IMPRESIÓN ===================== */
+  @media print {
+    @page { size: letter portrait; margin: 0.4cm 0.5cm; }
+    body { background:#fff !important; color:#000 !important; font-size:6.5pt !important; }
+    .no-imprimir, header, #panel-controles, #cargando, button,
+    #tabs-wrap, #toast, #controles-contab { display: none !important; }
+    #seccion-tabla, #vista-contabilidad {
+      border: none !important; box-shadow: none !important;
+      width: 100% !important; max-height: none !important; overflow: visible !important;
+    }
+    .tabla-encabezado-fijo th {
+      position: static !important;
+      background:#4E6E58 !important; color:#fff !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      font-size: 7pt !important;
+    }
+    .tabla-uniforme tr { height: 18px !important; }
+    .tabla-uniforme td {
+      border: 0.4pt solid #64748b !important;
+      padding: 1px 3px !important; font-size: 6.5pt !important;
+    }
+    .inp-monto, .chk-pago { border:none !important; background:transparent !important; }
+    .encabezado-impresion { display: block !important; margin-bottom: 4px; text-align:center; }
+    tr.fila-pagada td    { background:#f0fdf4 !important; -webkit-print-color-adjust: exact; }
+    tr.fila-no-pagada td { background:#fef2f2 !important; -webkit-print-color-adjust: exact; }
+    .cards-wrap { display:none !important; }
+    .tabla-wrap { display:block !important; }
+  }
+  .encabezado-impresion { display: none; }
+</style>
 </head>
 <body class="bg-slate-100 font-sans text-slate-800 pb-10">
 
-    <!-- Encabezado Principal (Se oculta al imprimir) -->
-    <header class="bg-indigo-900 text-white shadow-lg p-6 mb-6 no-imprimir">
-        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold flex items-center gap-3">
-                    <i class="fa-solid fa-file-invoice text-amber-400"></i> Control de Suplencias
-                </h1>
-                <p class="text-indigo-200 text-sm mt-1">Listado único continuo con encabezado fijo y Mistletoe Green</p>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-emerald-400 shadow cursor-pointer">
-                    <i class="fa-solid fa-print"></i> Imprimir / PDF
-                </button>
-                <button onclick="cargarDatos()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-indigo-400 shadow cursor-pointer">
-                    <i class="fa-solid fa-rotate" id="refresh-icon"></i> Actualizar
-                </button>
-            </div>
+<!-- ==================== HEADER ==================== -->
+<header class="bg-indigo-900 text-white shadow-lg p-4 md:p-6 mb-4 md:mb-6 no-imprimir">
+  <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+    <div class="text-center md:text-left">
+      <h1 class="text-xl md:text-3xl font-extrabold flex items-center gap-2 justify-center md:justify-start">
+        <i class="fa-solid fa-file-invoice text-amber-400"></i> Control de Suplencias
+      </h1>
+      <p class="text-indigo-200 text-xs md:text-sm mt-1">Pagos de viaje a México · Contabilidad · Reportes</p>
+    </div>
+    <div class="flex gap-2 items-center flex-wrap justify-center">
+      <button onclick="cargarDatos()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 md:px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center gap-2 border border-indigo-400 shadow cursor-pointer">
+        <i class="fa-solid fa-rotate" id="refresh-icon"></i> Actualizar
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="container mx-auto px-2 md:px-4">
+
+  <!-- Encabezado solo impresión -->
+  <div class="encabezado-impresion border-b border-slate-800 pb-1">
+    <h1 class="text-xs font-black text-slate-900 uppercase tracking-tight">Reporte General de Personal y Suplencias</h1>
+    <p class="text-[6pt] text-slate-600" id="info-filtro-impresion"></p>
+  </div>
+
+  <!-- ==================== PESTAÑAS ==================== -->
+  <div id="tabs-wrap" class="flex gap-1 md:gap-2 mb-0 no-imprimir overflow-x-auto">
+    <button id="tab-lista" class="tab-btn activo" onclick="cambiarTab('lista')">
+      <i class="fa-solid fa-table-list"></i> Lista / Pagos
+    </button>
+    <button id="tab-contab" class="tab-btn" onclick="cambiarTab('contabilidad')">
+      <i class="fa-solid fa-sack-dollar"></i> Contabilidad
+    </button>
+    <button id="tab-reportes" class="tab-btn" onclick="cambiarTab('reportes')">
+      <i class="fa-solid fa-file-lines"></i> Reportes
+    </button>
+  </div>
+
+  <!-- ==================== VISTA: LISTA ==================== -->
+  <div id="vista-lista">
+    <!-- Filtros -->
+    <div id="panel-controles" class="bg-white p-4 md:p-6 rounded-2xl shadow-md border border-slate-200 mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <label for="select-funcion" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1 flex items-center gap-1">
+          <i class="fa-solid fa-list-check text-indigo-600"></i> Función
+        </label>
+        <select id="select-funcion" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 text-sm font-bold focus:border-indigo-600 outline-none">
+          <option value="TODOS">-- Todas --</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="select-municipio" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1 flex items-center gap-1">
+          <i class="fa-solid fa-city text-indigo-600"></i> Municipio
+        </label>
+        <select id="select-municipio" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 text-sm font-bold focus:border-indigo-600 outline-none">
+          <option value="TODOS">-- Todos --</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="select-lugar" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1 flex items-center gap-1">
+          <i class="fa-solid fa-location-dot text-indigo-600"></i> Lugar
+        </label>
+        <select id="select-lugar" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 text-sm font-bold focus:border-indigo-600 outline-none">
+          <option value="TODOS">-- Todos --</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="select-estado" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1 flex items-center gap-1">
+          <i class="fa-solid fa-circle-check text-indigo-600"></i> Estado de pago
+        </label>
+        <select id="select-estado" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 text-sm font-bold focus:border-indigo-600 outline-none">
+          <option value="TODOS">-- Todos --</option>
+          <option value="SI">✅ Sí cooperó</option>
+          <option value="NO">❌ No cooperó</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-3">
+        <label for="filter-search" class="block text-xs md:text-sm font-bold text-slate-700 mb-1">Búsqueda</label>
+        <input type="text" id="filter-search" oninput="aplicarFiltros()" placeholder="Nombre, código, lugar..." class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+      </div>
+
+      <div class="flex items-end">
+        <div class="w-full text-center md:text-right text-xs md:text-sm font-bold text-slate-600">
+          Total: <span id="cant-registros" class="text-emerald-700 font-extrabold text-lg">0</span>
         </div>
-    </header>
+      </div>
+    </div>
 
-    <main class="container mx-auto px-4">
+    <!-- Resumen rápido -->
+    <div class="grid grid-cols-3 gap-2 md:gap-4 mb-4">
+      <div class="bg-white rounded-xl p-3 shadow border-l-4 border-slate-500">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Filtrados</p>
+        <p id="res-total" class="text-lg md:text-2xl font-black text-slate-800">0</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 shadow border-l-4 border-emerald-600">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Cooperaron</p>
+        <p id="res-si" class="text-lg md:text-2xl font-black text-emerald-700">0</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 shadow border-l-4 border-red-500">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">No cooperaron</p>
+        <p id="res-no" class="text-lg md:text-2xl font-black text-red-600">0</p>
+      </div>
+    </div>
 
-        <!-- Encabezado Visible Solo al Imprimir -->
-        <div class="encabezado-impresion border-b border-slate-800 pb-1">
-            <h1 class="text-xs font-black text-slate-900 uppercase tracking-tight">Reporte General de Personal y Suplencias</h1>
-            <p class="text-[6pt] text-slate-600" id="info-filtro-impresion">Filtrado por función y ordenado por antigüedad</p>
+    <!-- ============ TABLA (desktop) ============ -->
+    <div id="seccion-tabla" class="tabla-wrap bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden max-h-[72vh] overflow-y-auto">
+      <table class="tabla-uniforme text-left border-collapse">
+        <thead class="tabla-encabezado-fijo">
+          <tr>
+            <th class="w-[3%] text-center">#</th>
+            <th class="w-[24%]">Nombre Completo</th>
+            <th class="w-[6%] text-center">Edad</th>
+            <th class="w-[14%]">Función</th>
+            <th class="w-[7%] text-center">Antig.</th>
+            <th class="w-[18%]">Lugar</th>
+            <th class="w-[10%]">Municipio</th>
+            <th class="w-[7%] text-center">Pago MX</th>
+            <th class="w-[7%] text-center">Monto</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-cuerpo" class="divide-y divide-slate-200"></tbody>
+      </table>
+
+      <div id="cargando" class="p-12 text-center text-slate-500">
+        <i class="fa-solid fa-spinner fa-spin text-4xl text-emerald-600 mb-3"></i>
+        <p class="font-bold">Cargando base de datos...</p>
+      </div>
+    </div>
+
+    <!-- ============ CARDS (móvil) ============ -->
+    <div id="cards-cuerpo" class="cards-wrap"></div>
+
+    <!-- ===== BOTONES INFERIORES (Lista) ===== -->
+    <div class="no-imprimir bg-white rounded-2xl shadow-md border border-slate-200 p-4 mt-4 flex flex-wrap gap-3 justify-center md:justify-end">
+      <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-emerald-400 shadow cursor-pointer">
+        <i class="fa-solid fa-print"></i> Imprimir / PDF
+      </button>
+      <button onclick="descargarCaptura()" class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-amber-400 shadow cursor-pointer">
+        <i class="fa-solid fa-camera"></i> Descargar Captura
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA: CONTABILIDAD ==================== -->
+  <div id="vista-contabilidad" class="hidden">
+    <div id="controles-contab" class="bg-white p-4 md:p-6 rounded-2xl shadow-md border border-slate-200 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 no-imprimir">
+      <div>
+        <label for="select-agrupador" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1">
+          <i class="fa-solid fa-layer-group text-indigo-600"></i> Agrupar por
+        </label>
+        <select id="select-agrupador" onchange="recalcularContabilidad()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 font-bold text-sm cursor-pointer">
+          <option value="lugar">Lugar de Trabajo</option>
+          <option value="municipio">Municipio</option>
+          <option value="funcion">Función</option>
+        </select>
+      </div>
+      <div>
+        <label for="select-filtro-contab" class="block text-xs md:text-sm font-extrabold text-indigo-900 mb-1">
+          <i class="fa-solid fa-filter text-indigo-600"></i> Filtrar por municipio
+        </label>
+        <select id="select-filtro-contab" onchange="recalcularContabilidad()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-lg p-2 font-bold text-sm cursor-pointer">
+          <option value="TODOS">-- Todos --</option>
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button onclick="exportarContabilidadCSV()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-bold text-sm shadow flex items-center justify-center gap-2">
+          <i class="fa-solid fa-file-csv"></i> Exportar CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
+      <div class="bg-white rounded-xl p-3 md:p-4 shadow border-l-4 border-slate-500">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Total Personas</p>
+        <p id="kpi-personas" class="text-lg md:text-2xl font-black text-slate-800">0</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 md:p-4 shadow border-l-4 border-emerald-600">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Pagaron</p>
+        <p id="kpi-pagaron" class="text-lg md:text-2xl font-black text-emerald-700">0</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 md:p-4 shadow border-l-4 border-red-500">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Pendientes</p>
+        <p id="kpi-pendientes" class="text-lg md:text-2xl font-black text-red-600">0</p>
+      </div>
+      <div class="bg-white rounded-xl p-3 md:p-4 shadow border-l-4 border-indigo-600">
+        <p class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Monto</p>
+        <p id="kpi-monto" class="text-lg md:text-2xl font-black text-indigo-700">$0</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-x-auto">
+      <table class="tabla-uniforme text-left border-collapse min-w-[640px]">
+        <thead class="tabla-encabezado-fijo">
+          <tr>
+            <th class="w-[38%]" id="th-agrupador">Lugar de Trabajo</th>
+            <th class="w-[10%] text-center">Pers.</th>
+            <th class="w-[10%] text-center">Pag.</th>
+            <th class="w-[10%] text-center">Pend.</th>
+            <th class="w-[10%] text-center">% Pago</th>
+            <th class="w-[12%] text-right">Monto</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-contab" class="divide-y divide-slate-200"></tbody>
+        <tfoot class="bg-emerald-100 border-t-2 border-emerald-700">
+          <tr class="font-extrabold text-slate-900">
+            <td class="p-2 md:p-3 text-xs md:text-sm">TOTAL</td>
+            <td class="text-center text-xs md:text-sm" id="total-personas">0</td>
+            <td class="text-center text-xs md:text-sm" id="total-pagaron">0</td>
+            <td class="text-center text-xs md:text-sm" id="total-pendientes">0</td>
+            <td class="text-center text-xs md:text-sm" id="total-pct">0%</td>
+            <td class="text-right text-xs md:text-sm text-emerald-800" id="total-monto">$0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ===== BOTONES INFERIORES (Contabilidad) ===== -->
+    <div class="no-imprimir bg-white rounded-2xl shadow-md border border-slate-200 p-4 mt-4 flex flex-wrap gap-3 justify-center md:justify-end">
+      <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-emerald-400 shadow cursor-pointer">
+        <i class="fa-solid fa-print"></i> Imprimir / PDF
+      </button>
+      <button onclick="descargarCaptura()" class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-amber-400 shadow cursor-pointer">
+        <i class="fa-solid fa-camera"></i> Descargar Captura
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA: REPORTES ==================== -->
+  <div id="vista-reportes" class="hidden">
+    <div class="bg-white p-4 md:p-6 rounded-2xl shadow-md border border-slate-200 mb-4 no-imprimir">
+      <h2 class="text-lg font-extrabold text-slate-800 mb-4"><i class="fa-solid fa-file-lines text-indigo-600"></i> Generar reportes</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <button onclick="generarReporte('todos')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-users text-2xl"></i>
+          <span>Reporte General</span>
+          <span class="text-xs font-normal opacity-80">Todos los registros</span>
+        </button>
+
+        <button onclick="generarReporte('cooperaron')" class="bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-circle-check text-2xl"></i>
+          <span>Sí Cooperaron</span>
+          <span class="text-xs font-normal opacity-80">Solo pagados</span>
+        </button>
+
+        <button onclick="generarReporte('no_cooperaron')" class="bg-red-600 hover:bg-red-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-circle-xmark text-2xl"></i>
+          <span>No Cooperaron</span>
+          <span class="text-xs font-normal opacity-80">Solo pendientes</span>
+        </button>
+
+        <button onclick="generarReporte('por_municipio')" class="bg-amber-600 hover:bg-amber-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-city text-2xl"></i>
+          <span>Por Municipio</span>
+          <span class="text-xs font-normal opacity-80">Agrupado</span>
+        </button>
+
+        <button onclick="generarReporte('por_lugar')" class="bg-teal-600 hover:bg-teal-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-location-dot text-2xl"></i>
+          <span>Por Lugar</span>
+          <span class="text-xs font-normal opacity-80">Agrupado</span>
+        </button>
+
+        <button onclick="generarReporte('por_funcion')" class="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl font-bold text-sm shadow flex flex-col items-center gap-2">
+          <i class="fa-solid fa-briefcase text-2xl"></i>
+          <span>Por Función</span>
+          <span class="text-xs font-normal opacity-80">Agrupado</span>
+        </button>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-200">
+        <h3 class="text-sm font-bold text-slate-700 mb-2">Filtros actuales para reporte</h3>
+        <p class="text-xs text-slate-500 mb-3">Se aplican los filtros de la pestaña Lista (función, municipio, lugar, estado).</p>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-slate-100 px-2 py-1 rounded">Función: <strong id="rep-funcion">Todas</strong></span>
+          <span class="bg-slate-100 px-2 py-1 rounded">Municipio: <strong id="rep-municipio">Todos</strong></span>
+          <span class="bg-slate-100 px-2 py-1 rounded">Lugar: <strong id="rep-lugar">Todos</strong></span>
+          <span class="bg-slate-100 px-2 py-1 rounded">Estado: <strong id="rep-estado">Todos</strong></span>
+          <span class="bg-emerald-100 px-2 py-1 rounded text-emerald-800">Registros: <strong id="rep-total">0</strong></span>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Panel de Filtros -->
-        <div id="panel-controles" class="bg-white p-6 rounded-2xl shadow-md border border-slate-200 mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Selector de Función -->
-            <div>
-                <label for="select-funcion" class="block text-sm font-extrabold text-indigo-900 mb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-list-check text-indigo-600"></i> Seleccionar Función:
-                </label>
-                <select id="select-funcion" onchange="aplicarFiltros()" class="w-full bg-slate-50 border-2 border-indigo-300 rounded-xl p-4 text-lg md:text-xl font-bold text-slate-800 focus:ring-4 focus:ring-indigo-200 focus:border-indigo-600 outline-none cursor-pointer shadow-sm">
-                    <option value="TODOS">-- TODAS LAS FUNCIONES (LISTADO CONTINUO) --</option>
-                </select>
-            </div>
+</main>
 
-            <!-- Buscador por Texto y Contador -->
-            <div class="flex flex-col justify-between">
-                <div>
-                    <label for="filter-search" class="block text-sm font-bold text-slate-700 mb-2">Búsqueda General:</label>
-                    <input type="text" id="filter-search" oninput="aplicarFiltros()" placeholder="Buscar por Nombre, CURP, Municipio, Adscripción..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div class="mt-3 text-right text-sm font-bold text-slate-600">
-                    Total Filtrado: <span id="cant-registros" class="text-emerald-700 font-extrabold text-lg">0</span> persona(s)
-                </div>
-            </div>
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Librería para captura -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+/* ============================================================
+ *  CONFIGURACIÓN
+ * ============================================================ */
+const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbyMBLhnQVqy5h_LyvZSHoz8ejESWPD7kI2Vuw8Td6A44IxstQlSEl498vF6FiV_9imI/exec';
+const MONTO_DEFAULT = 450;
+
+let datosOriginales = [];
+let vistaActual = 'lista';
+
+document.addEventListener('DOMContentLoaded', cargarDatos);
+
+/* ============================================================
+ *  CARGA DE DATOS
+ * ============================================================ */
+function cargarDatos() {
+  document.getElementById('cargando').classList.remove('hidden');
+  document.getElementById('cargando').innerHTML =
+    '<i class="fa-solid fa-spinner fa-spin text-4xl text-emerald-600 mb-3"></i><p class="font-bold">Cargando base de datos...</p>';
+  const icon = document.getElementById('refresh-icon');
+  if (icon) icon.classList.add('fa-spin');
+
+  fetch(WEB_APP_URL + '?action=read&_t=' + Date.now())
+    .then(res => res.json())
+    .then(data => {
+      if (!Array.isArray(data)) throw new Error(data && data.error ? data.error : 'Respuesta inválida');
+
+      datosOriginales = data.map(row => {
+        const antTexto = String(row['ANTIGÜEDAD'] || '0 AÑOS');
+        const antNum   = row._antNum != null ? Number(row._antNum) : (parseInt(antTexto) || 0);
+
+        const pagadoRaw = row['PAGO_VIAJE'];
+        const pagado = pagadoRaw === true || pagadoRaw === 'TRUE' || pagadoRaw === 'true'
+          || pagadoRaw === 1 || pagadoRaw === '1'
+          || (typeof pagadoRaw === 'string' && ['SI','SÍ','VERDADERO'].includes(pagadoRaw.trim().toUpperCase()));
+
+        const montoRaw = row['MONTO_VIAJE'];
+        const monto = (montoRaw === '' || montoRaw == null || isNaN(Number(montoRaw)))
+          ? MONTO_DEFAULT : Math.max(0, Number(montoRaw));
+
+        return {
+          _rowNumber:     row._rowNumber,
+          nombreCompleto: `${row['NOMBRES'] || ''} ${row['APELLIDO PATERNO'] || ''} ${row['APELLIDO MATERNO'] || ''}`.replace(/\s+/g,' ').trim(),
+          edad:           row['EDAD'] || 'N/A',
+          funcion:        String(row['FUNCION'] || 'SIN FUNCIÓN').trim(),
+          antiguedadTexto:antTexto,
+          antiguedadNum:  antNum,
+          adscripcion:    String(row['LUGAR DE ADSCRIPCIÓN'] || 'N/A').trim(),
+          municipio:      String(row['MUNICIPIO'] || 'N/A').trim(),
+          pagado:         pagado,
+          monto:          monto
+        };
+      });
+
+      poblarSelects();
+      aplicarFiltros();
+      recalcularContabilidad();
+      actualizarResumenReportes();
+
+      document.getElementById('cargando').classList.add('hidden');
+      if (icon) icon.classList.remove('fa-spin');
+      mostrarToast('Datos actualizados ✓', false);
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('cargando').innerHTML =
+        '<div class="p-4 text-center">' +
+        '<p class="text-red-600 font-bold mb-2">Error al conectar</p>' +
+        '<p class="text-xs text-slate-500 mb-3">' + escapeHtml(err.message) + '</p>' +
+        '<button onclick="cargarDatos()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-rotate"></i> Reintentar</button></div>';
+      if (icon) icon.classList.remove('fa-spin');
+      mostrarToast('Error de conexión', true);
+    });
+}
+
+/* ============================================================
+ *  POBLAR SELECTS
+ * ============================================================ */
+function poblarSelects() {
+  const selF = document.getElementById('select-funcion');
+  const valF = selF.value;
+  selF.innerHTML = '<option value="TODOS">-- Todas --</option>';
+  const setF = new Set();
+  datosOriginales.forEach(d => { if (d.funcion) setF.add(d.funcion); });
+  Array.from(setF).sort().forEach(f => selF.innerHTML += `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`);
+  if ([...selF.options].some(o => o.value === valF)) selF.value = valF;
+
+  const selM = document.getElementById('select-municipio');
+  const valM = selM.value;
+  selM.innerHTML = '<option value="TODOS">-- Todos --</option>';
+  const setM = new Set();
+  datosOriginales.forEach(d => { if (d.municipio) setM.add(d.municipio); });
+  Array.from(setM).sort().forEach(m => selM.innerHTML += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`);
+  if ([...selM.options].some(o => o.value === valM)) selM.value = valM;
+
+  const selL = document.getElementById('select-lugar');
+  const valL = selL.value;
+  selL.innerHTML = '<option value="TODOS">-- Todos --</option>';
+  const setL = new Set();
+  datosOriginales.forEach(d => { if (d.adscripcion) setL.add(d.adscripcion); });
+  Array.from(setL).sort().forEach(l => selL.innerHTML += `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`);
+  if ([...selL.options].some(o => o.value === valL)) selL.value = valL;
+
+  const selC = document.getElementById('select-filtro-contab');
+  const valC = selC.value;
+  selC.innerHTML = '<option value="TODOS">-- Todos --</option>';
+  Array.from(setM).sort().forEach(m => selC.innerHTML += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`);
+  if ([...selC.options].some(o => o.value === valC)) selC.value = valC;
+}
+
+/* ============================================================
+ *  FILTROS
+ * ============================================================ */
+function obtenerFiltrados() {
+  const f = document.getElementById('select-funcion').value;
+  const m = document.getElementById('select-municipio').value;
+  const l = document.getElementById('select-lugar').value;
+  const e = document.getElementById('select-estado').value;
+  const s = document.getElementById('filter-search').value.toLowerCase().trim();
+
+  let res = datosOriginales.filter(item => {
+    if (f !== 'TODOS' && item.funcion !== f) return false;
+    if (m !== 'TODOS' && item.municipio !== m) return false;
+    if (l !== 'TODOS' && item.adscripcion !== l) return false;
+    if (e === 'SI' && !item.pagado) return false;
+    if (e === 'NO' && item.pagado) return false;
+    if (s) {
+      const txt = [item.nombreCompleto, item.adscripcion, item.municipio, item.funcion].join(' ').toLowerCase();
+      if (!txt.includes(s)) return false;
+    }
+    return true;
+  });
+
+  res.sort((a, b) => b.antiguedadNum - a.antiguedadNum);
+  return res;
+}
+
+function aplicarFiltros() {
+  const resultado = obtenerFiltrados();
+
+  const si = resultado.filter(x => x.pagado).length;
+  const no = resultado.length - si;
+  document.getElementById('res-total').textContent = resultado.length;
+  document.getElementById('res-si').textContent = si;
+  document.getElementById('res-no').textContent = no;
+  document.getElementById('cant-registros').textContent = resultado.length;
+
+  const f = document.getElementById('select-funcion').value;
+  const m = document.getElementById('select-municipio').value;
+  const l = document.getElementById('select-lugar').value;
+  const e = document.getElementById('select-estado').value;
+  document.getElementById('info-filtro-impresion').innerText =
+    `Función: ${f === 'TODOS' ? 'Todas' : f} | Municipio: ${m === 'TODOS' ? 'Todos' : m} | ` +
+    `Lugar: ${l === 'TODOS' ? 'Todos' : l} | Estado: ${e === 'TODOS' ? 'Todos' : (e === 'SI' ? 'Sí cooperó' : 'No cooperó')} | ` +
+    `Total: ${resultado.length} | Fecha: ${new Date().toLocaleDateString()}`;
+
+  renderTabla(resultado);
+  renderCards(resultado);
+  actualizarResumenReportes();
+}
+
+/* ============================================================
+ *  RENDER TABLA (desktop)
+ * ============================================================ */
+function renderTabla(lista) {
+  const tbody = document.getElementById('tabla-cuerpo');
+  tbody.innerHTML = '';
+
+  if (lista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-slate-400 font-medium">No se encontraron registros.</td></tr>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  lista.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = "transition border-b border-slate-200 " + (item.pagado ? 'fila-pagada hover:bg-emerald-50' : 'fila-no-pagada hover:bg-red-50');
+    tr.dataset.row = item._rowNumber;
+
+    tr.innerHTML = `
+      <td class="text-center font-bold text-slate-400">${idx + 1}</td>
+      <td class="font-bold text-slate-900" title="${escapeHtml(item.nombreCompleto)}">${escapeHtml(item.nombreCompleto)}</td>
+      <td class="text-center"><span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${escapeHtml(String(item.edad))}</span></td>
+      <td class="font-semibold text-slate-800" title="${escapeHtml(item.funcion)}">${escapeHtml(item.funcion)}</td>
+      <td class="text-center font-extrabold text-emerald-800 bg-emerald-50/60">${escapeHtml(item.antiguedadTexto)}</td>
+      <td class="text-slate-700" title="${escapeHtml(item.adscripcion)}">${escapeHtml(item.adscripcion)}</td>
+      <td class="font-semibold text-slate-600" title="${escapeHtml(item.municipio)}">${escapeHtml(item.municipio)}</td>
+      <td class="text-center">
+        <input type="checkbox" class="chk-pago" ${item.pagado ? 'checked' : ''}
+               onchange="onTogglePago(${item._rowNumber}, this.checked)">
+      </td>
+      <td class="text-center">
+        <input type="number" class="inp-monto" value="${item.monto}" min="0" step="50"
+               onchange="onCambiarMonto(${item._rowNumber}, this.value)">
+      </td>
+    `;
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+}
+
+/* ============================================================
+ *  RENDER CARDS (móvil)
+ * ============================================================ */
+function renderCards(lista) {
+  const cont = document.getElementById('cards-cuerpo');
+  cont.innerHTML = '';
+
+  if (lista.length === 0) {
+    cont.innerHTML = '<p class="text-center p-8 text-slate-400 font-medium">No se encontraron registros.</p>';
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  lista.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'tarjeta ' + (item.pagado ? 'pagada' : 'no-pagada');
+    div.innerHTML = `
+      <h3><span class="text-slate-400 mr-1">${idx + 1}.</span> ${escapeHtml(item.nombreCompleto)}</h3>
+      <div class="fila-dato"><span>Función:</span><strong>${escapeHtml(item.funcion)}</strong></div>
+      <div class="fila-dato"><span>Lugar:</span><strong>${escapeHtml(item.adscripcion)}</strong></div>
+      <div class="fila-dato"><span>Municipio:</span><strong>${escapeHtml(item.municipio)}</strong></div>
+      <div class="fila-dato"><span>Antigüedad:</span><strong>${escapeHtml(item.antiguedadTexto)}</strong></div>
+      <div class="acciones">
+        <label class="flex items-center gap-2 text-xs font-bold ${item.pagado ? 'text-emerald-700' : 'text-red-600'}">
+          <input type="checkbox" class="chk-pago" ${item.pagado ? 'checked' : ''}
+                 onchange="onTogglePago(${item._rowNumber}, this.checked)">
+          ${item.pagado ? 'Sí cooperó' : 'No cooperó'}
+        </label>
+        <div class="ml-auto flex items-center gap-1">
+          <span class="text-xs font-bold text-slate-500">$</span>
+          <input type="number" class="inp-monto" value="${item.monto}" min="0" step="50"
+                 onchange="onCambiarMonto(${item._rowNumber}, this.value)">
         </div>
+      </div>
+    `;
+    frag.appendChild(div);
+  });
+  cont.appendChild(frag);
+}
 
-        <!-- Tabla Única Continua con Encabezado Fijo -->
-        <div id="seccion-tabla" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden max-h-[75vh] overflow-y-auto">
-            <table class="tabla-uniforme text-left border-collapse">
-                <thead class="tabla-encabezado-fijo">
-                    <tr>
-                        <th class="w-[4%] text-center">#</th>
-                        <th class="w-[26%]">Nombre Completo</th>
-                        <th class="w-[7%] text-center">Edad</th>
-                        <th class="w-[18%]">CURP</th>
-                        <th class="w-[15%]">Función</th>
-                        <th class="w-[8%] text-center font-bold">Antigüedad</th>
-                        <th class="w-[14%]">Lugar de Trabajo</th>
-                        <th class="w-[8%]">Municipio</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-cuerpo" class="divide-y divide-slate-200">
-                    <!-- Filas cargadas dinámicamente -->
-                </tbody>
-            </table>
+/* ============================================================
+ *  ACCIONES
+ * ============================================================ */
+function onTogglePago(rowNumber, checked) {
+  const item = datosOriginales.find(d => d._rowNumber === rowNumber);
+  if (!item) return;
 
-            <!-- Indicador de Carga -->
-            <div id="cargando" class="p-12 text-center text-slate-500">
-                <i class="fa-solid fa-spinner fa-spin text-4xl text-emerald-600 mb-3"></i>
-                <p class="font-bold">Cargando base de datos desde Google Sheets...</p>
-            </div>
-        </div>
+  const anterior = item.pagado;
+  item.pagado = checked;
 
-    </main>
+  document.querySelectorAll(`tr[data-row="${rowNumber}"]`).forEach(tr => {
+    tr.classList.toggle('fila-pagada', checked);
+    tr.classList.toggle('fila-no-pagada', !checked);
+  });
 
-    <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzQ9pyDndvEHYS18wDcrxKh4_-J7m5uDagJXx9_2JeS3ADkaHRtaNjKHMJeryE-k5hR/exec';
+  fetch(`${WEB_APP_URL}?action=updatePago&rowNumber=${rowNumber}&pagado=${checked}&_t=${Date.now()}`)
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) throw new Error(res.error || 'Error desconocido');
+      mostrarToast(checked ? 'Pago marcado ✓' : 'Pago desmarcado', false);
+      aplicarFiltros();
+      recalcularContabilidad();
+    })
+    .catch(err => {
+      item.pagado = anterior;
+      mostrarToast('Error al guardar: ' + err.message, true);
+      aplicarFiltros();
+    });
+}
 
-        let datosOriginales = [];
+function onCambiarMonto(rowNumber, valor) {
+  const item = datosOriginales.find(d => d._rowNumber === rowNumber);
+  if (!item) return;
 
-        document.addEventListener('DOMContentLoaded', cargarDatos);
+  let monto = Number(valor);
+  if (isNaN(monto) || monto < 0) monto = MONTO_DEFAULT;
+  monto = Math.round(monto * 100) / 100;
 
-        function cargarDatos() {
-            document.getElementById('cargando').classList.remove('hidden');
-            const icon = document.getElementById('refresh-icon');
-            if(icon) icon.classList.add('fa-spin');
+  const anterior = item.monto;
+  item.monto = monto;
 
-            fetch(WEB_APP_URL)
-                .then(res => res.json())
-                .then(data => {
-                    datosOriginales = data.map(row => {
-                        let antTexto = String(row['ANTIGÜEDAD'] || '0 AÑOS');
-                        let antNum = parseInt(antTexto) || 0;
+  fetch(`${WEB_APP_URL}?action=updateMonto&rowNumber=${rowNumber}&monto=${monto}&_t=${Date.now()}`)
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) throw new Error(res.error || 'Error desconocido');
+      mostrarToast('Monto guardado: $' + monto, false);
+      recalcularContabilidad();
+    })
+    .catch(err => {
+      item.monto = anterior;
+      mostrarToast('Error al guardar: ' + err.message, true);
+      aplicarFiltros();
+    });
+}
 
-                        return {
-                            _rowNumber: row._rowNumber,
-                            nombreCompleto: `${row['NOMBRES'] || ''} ${row['APELLIDO PATERNO'] || ''} ${row['APELLIDO MATERNO'] || ''}`.trim(),
-                            edad: row['EDAD'] || 'N/A',
-                            curp: row['CURP'] || 'N/A',
-                            funcion: String(row['FUNCION'] || 'SIN FUNCIÓN').trim(),
-                            antiguedadTexto: antTexto,
-                            antiguedadNum: antNum,
-                            adscripcion: row['LUGAR DE ADSCRIPCIÓN'] || 'N/A',
-                            municipio: row['MUNICIPIO'] || 'N/A'
-                        };
-                    });
+/* ============================================================
+ *  CONTABILIDAD
+ * ============================================================ */
+function recalcularContabilidad() {
+  const agrupador  = document.getElementById('select-agrupador').value;
+  const filtroMun  = document.getElementById('select-filtro-contab').value;
 
-                    poblarSelectFunciones();
-                    aplicarFiltros();
+  let base = datosOriginales.slice();
+  if (filtroMun !== 'TODOS') base = base.filter(d => d.municipio === filtroMun);
 
-                    document.getElementById('cargando').classList.add('hidden');
-                    if(icon) icon.classList.remove('fa-spin');
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById('cargando').innerHTML = '<p class="text-red-600 font-bold p-4">Error al conectar con la API Web.</p>';
-                });
-        }
+  document.getElementById('th-agrupador').textContent =
+    { lugar: 'Lugar de Trabajo', municipio: 'Municipio', funcion: 'Función' }[agrupador] || 'Grupo';
 
-        function poblarSelectFunciones() {
-            const select = document.getElementById('select-funcion');
-            select.innerHTML = '<option value="TODOS">-- TODAS LAS FUNCIONES (LISTADO CONTINUO) --</option>';
+  const grupos = {};
+  base.forEach(d => {
+    let clave = 'SIN DATO';
+    if (agrupador === 'lugar')     clave = d.adscripcion || 'SIN LUGAR';
+    if (agrupador === 'municipio') clave = d.municipio || 'SIN MUNICIPIO';
+    if (agrupador === 'funcion')   clave = d.funcion || 'SIN FUNCIÓN';
 
-            const funcionesSet = new Set();
-            datosOriginales.forEach(d => {
-                if (d.funcion) funcionesSet.add(d.funcion);
-            });
+    if (!grupos[clave]) grupos[clave] = { personas: 0, pagaron: 0, monto: 0 };
+    grupos[clave].personas++;
+    if (d.pagado) {
+      grupos[clave].pagaron++;
+      grupos[clave].monto += Number(d.monto) || MONTO_DEFAULT;
+    }
+  });
 
-            Array.from(funcionesSet).sort().forEach(func => {
-                const opt = document.createElement('option');
-                opt.value = func;
-                opt.textContent = func;
-                select.appendChild(opt);
-            });
-        }
+  const tbody = document.getElementById('tabla-contab');
+  tbody.innerHTML = '';
+  let tP = 0, tPa = 0, tM = 0;
 
-        function aplicarFiltros() {
-            const funcionSeleccionada = document.getElementById('select-funcion').value;
-            const search = document.getElementById('filter-search').value.toLowerCase();
+  const entradas = Object.entries(grupos).sort((a, b) => b[1].monto - a[1].monto || a[0].localeCompare(b[0]));
+  if (!entradas.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-400">Sin datos.</td></tr>`;
+  } else {
+    entradas.forEach(([clave, g]) => {
+      tP += g.personas; tPa += g.pagaron; tM += g.monto;
+      const pend = g.personas - g.pagaron;
+      const pct = g.personas ? Math.round((g.pagaron / g.personas) * 100) : 0;
+      tbody.innerHTML += `
+        <tr class="hover:bg-emerald-50/50 border-b border-slate-100">
+          <td class="font-semibold text-slate-800" title="${escapeHtml(clave)}">${escapeHtml(clave)}</td>
+          <td class="text-center font-bold">${g.personas}</td>
+          <td class="text-center font-bold text-emerald-700">${g.pagaron}</td>
+          <td class="text-center font-bold text-red-600">${pend}</td>
+          <td class="text-center font-bold text-slate-600">${pct}%</td>
+          <td class="text-right font-extrabold text-emerald-800">$${g.monto.toLocaleString('es-MX')}</td>
+        </tr>`;
+    });
+  }
 
-            let resultado = datosOriginales.filter(item => {
-                const matchFuncion = (funcionSeleccionada === 'TODOS') || (item.funcion === funcionSeleccionada);
-                const matchSearch = !search || 
-                    item.nombreCompleto.toLowerCase().includes(search) || 
-                    item.curp.toLowerCase().includes(search) || 
-                    item.municipio.toLowerCase().includes(search) ||
-                    item.adscripcion.toLowerCase().includes(search);
+  const tPe = tP - tPa;
+  const tPct = tP ? Math.round((tPa / tP) * 100) : 0;
 
-                return matchFuncion && matchSearch;
-            });
+  document.getElementById('total-personas').textContent    = tP;
+  document.getElementById('total-pagaron').textContent     = tPa;
+  document.getElementById('total-pendientes').textContent  = tPe;
+  document.getElementById('total-pct').textContent         = tPct + '%';
+  document.getElementById('total-monto').textContent       = '$' + tM.toLocaleString('es-MX');
 
-            // Ordenar por Antigüedad de Mayor a Menor
-            resultado.sort((a, b) => b.antiguedadNum - a.antiguedadNum);
+  document.getElementById('kpi-personas').textContent    = tP;
+  document.getElementById('kpi-pagaron').textContent     = tPa;
+  document.getElementById('kpi-pendientes').textContent  = tPe;
+  document.getElementById('kpi-monto').textContent       = '$' + tM.toLocaleString('es-MX');
+}
 
-            document.getElementById('cant-registros').innerText = resultado.length;
-            document.getElementById('info-filtro-impresion').innerText = 
-                `Reporte: ${funcionSeleccionada === 'TODOS' ? 'Todas las Funciones' : funcionSeleccionada} | Total: ${resultado.length} registros | Fecha: ${new Date().toLocaleDateString()}`;
+/* ============================================================
+ *  EXPORTAR CSV
+ * ============================================================ */
+function exportarContabilidadCSV() {
+  const agrupador = document.getElementById('select-agrupador').value;
+  const filtroMun = document.getElementById('select-filtro-contab').value;
 
-            renderizarTablaUnica(resultado);
-        }
+  let base = datosOriginales.slice();
+  if (filtroMun !== 'TODOS') base = base.filter(d => d.municipio === filtroMun);
 
-        function renderizarTablaUnica(lista) {
-            const tbody = document.getElementById('tabla-cuerpo');
-            tbody.innerHTML = '';
+  const grupos = {};
+  base.forEach(d => {
+    let clave = d.adscripcion || 'SIN LUGAR';
+    if (agrupador === 'municipio') clave = d.municipio || 'SIN MUNICIPIO';
+    if (agrupador === 'funcion')   clave = d.funcion || 'SIN FUNCIÓN';
+    if (!grupos[clave]) grupos[clave] = { p: 0, pa: 0, m: 0 };
+    grupos[clave].p++;
+    if (d.pagado) { grupos[clave].pa++; grupos[clave].m += Number(d.monto) || MONTO_DEFAULT; }
+  });
 
-            if (lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-400 font-medium">No se encontraron registros.</td></tr>`;
-                return;
-            }
+  const lines = ['Agrupador,Personas,Pagaron,Pendientes,% Pago,Monto'];
+  Object.entries(grupos).forEach(([clave, g]) => {
+    const pend = g.p - g.pa;
+    const pct = g.p ? Math.round((g.pa / g.p) * 100) : 0;
+    lines.push(`"${String(clave).replace(/"/g, '""')}",${g.p},${g.pa},${pend},${pct}%,${g.m}`);
+  });
 
-            lista.forEach((item, idx) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-emerald-50/50 transition border-b border-slate-200";
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `contabilidad_${agrupador}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostrarToast('CSV exportado ✓', false);
+}
 
-                tr.innerHTML = `
-                    <td class="text-center font-bold text-slate-400">${idx + 1}</td>
-                    <td class="font-bold text-slate-900" title="${item.nombreCompleto}">${item.nombreCompleto}</td>
-                    <td class="text-center"><span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${item.edad}</span></td>
-                    <td class="font-mono text-slate-600" title="${item.curp}">${item.curp}</td>
-                    <td class="font-semibold text-slate-800" title="${item.funcion}">${item.funcion}</td>
-                    <td class="text-center font-extrabold text-emerald-800 bg-emerald-50/60">${item.antiguedadTexto}</td>
-                    <td class="text-slate-700 font-medium" title="${item.adscripcion}">${item.adscripcion}</td>
-                    <td class="font-semibold text-slate-600" title="${item.municipio}">${item.municipio}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-    </script>
+/* ============================================================
+ *  REPORTES
+ * ============================================================ */
+function actualizarResumenReportes() {
+  const f = document.getElementById('select-funcion').value;
+  const m = document.getElementById('select-municipio').value;
+  const l = document.getElementById('select-lugar').value;
+  const e = document.getElementById('select-estado').value;
+  const total = obtenerFiltrados().length;
+
+  document.getElementById('rep-funcion').textContent   = f === 'TODOS' ? 'Todas' : f;
+  document.getElementById('rep-municipio').textContent = m === 'TODOS' ? 'Todos' : m;
+  document.getElementById('rep-lugar').textContent     = l === 'TODOS' ? 'Todos' : l;
+  document.getElementById('rep-estado').textContent    = e === 'TODOS' ? 'Todos' : (e === 'SI' ? 'Sí cooperó' : 'No cooperó');
+  document.getElementById('rep-total').textContent     = total;
+}
+
+function generarReporte(tipo) {
+  const base = obtenerFiltrados();
+
+  let datosReporte = [];
+  let titulo = '';
+
+  if (tipo === 'todos') {
+    datosReporte = base;
+    titulo = 'Reporte General - Todos los registros';
+  } else if (tipo === 'cooperaron') {
+    datosReporte = base.filter(d => d.pagado);
+    titulo = 'Reporte - Personas que SÍ cooperaron';
+  } else if (tipo === 'no_cooperaron') {
+    datosReporte = base.filter(d => !d.pagado);
+    titulo = 'Reporte - Personas que NO cooperaron';
+  } else if (tipo === 'por_municipio' || tipo === 'por_lugar' || tipo === 'por_funcion') {
+    cambiarTab('contabilidad');
+    const agr = tipo === 'por_municipio' ? 'municipio' : tipo === 'por_lugar' ? 'lugar' : 'funcion';
+    document.getElementById('select-agrupador').value = agr;
+    recalcularContabilidad();
+    mostrarToast('Vista de contabilidad por ' + agr, false);
+    return;
+  }
+
+  if (!datosReporte.length) {
+    mostrarToast('No hay registros para este reporte', true);
+    return;
+  }
+
+  const w = window.open('', '_blank');
+  const filas = datosReporte.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(d.nombreCompleto)}</td>
+      <td>${escapeHtml(d.funcion)}</td>
+      <td>${escapeHtml(d.adscripcion)}</td>
+      <td>${escapeHtml(d.municipio)}</td>
+      <td>${escapeHtml(d.antiguedadTexto)}</td>
+      <td style="text-align:center">${d.pagado ? '✅ SÍ' : '❌ NO'}</td>
+      <td style="text-align:right">$${Number(d.monto).toLocaleString('es-MX')}</td>
+    </tr>`).join('');
+
+  const si = datosReporte.filter(d => d.pagado).length;
+  const no = datosReporte.length - si;
+  const monto = datosReporte.filter(d => d.pagado).reduce((s, d) => s + Number(d.monto || MONTO_DEFAULT), 0);
+
+  w.document.write(`
+    <!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo}</title>
+    <style>
+      @page { size: letter portrait; margin: 1cm; }
+      body { font-family: Arial, sans-serif; font-size: 10pt; color:#000; }
+      h1 { color:#4E6E58; text-align:center; font-size: 14pt; margin: 0 0 4px; }
+      .sub { text-align:center; font-size: 9pt; color:#555; margin-bottom: 12px; }
+      .kpis { display:flex; gap: 10px; margin-bottom: 12px; }
+      .kpi { flex:1; border:1px solid #4E6E58; border-radius:6px; padding:6px 10px; }
+      .kpi b { display:block; font-size: 14pt; color:#4E6E58; }
+      .kpi span { font-size: 8pt; color:#555; text-transform: uppercase; }
+      table { width:100%; border-collapse: collapse; }
+      th { background:#4E6E58; color:#fff; padding:6px; font-size:9pt; text-align:left; }
+      td { border: 1px solid #ccc; padding:4px 6px; font-size:8.5pt; }
+      tr:nth-child(even) td { background:#f4f7f5; }
+      .footer { margin-top: 14px; text-align:center; font-size: 8pt; color:#777; }
+    </style></head><body>
+      <h1>${titulo}</h1>
+      <p class="sub">Mistletoe Green · Generado ${new Date().toLocaleString()}</p>
+      <div class="kpis">
+        <div class="kpi"><b>${datosReporte.length}</b><span>Total</span></div>
+        <div class="kpi"><b>${si}</b><span>Sí cooperaron</span></div>
+        <div class="kpi"><b>${no}</b><span>No cooperaron</span></div>
+        <div class="kpi"><b>$${monto.toLocaleString('es-MX')}</b><span>Monto acumulado</span></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Nombre</th><th>Función</th><th>Lugar</th>
+          <th>Municipio</th><th>Antig.</th><th style="text-align:center">Pago MX</th><th style="text-align:right">Monto</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div class="footer">Reporte generado desde el sistema de Control de Suplencias</div>
+      <script>setTimeout(()=>window.print(), 400);</` + `script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+/* ============================================================
+ *  CAPTURA DE PANTALLA (respeta filtros y pestaña activa)
+ * ============================================================ */
+function descargarCaptura() {
+  const esMovil = window.innerWidth < 768;
+  let target, tituloCaptura;
+
+  if (vistaActual === 'contabilidad') {
+    target = document.getElementById('vista-contabilidad');
+    tituloCaptura = 'Contabilidad - Resumen de pagos';
+  } else {
+    target = esMovil
+      ? document.getElementById('cards-cuerpo')
+      : document.getElementById('seccion-tabla');
+    tituloCaptura = 'Control de Suplencias - Lista de pagos';
+  }
+
+  if (!target || !target.innerHTML.trim()) {
+    mostrarToast('No hay contenido para capturar', true);
+    return;
+  }
+
+  mostrarToast('Generando captura...', false);
+
+  const clone = target.cloneNode(true);
+
+  clone.querySelectorAll('.no-imprimir, #cargando, #controles-contab, #panel-controles').forEach(e => e.remove());
+  clone.classList.remove('hidden');
+
+  clone.style.maxHeight = 'none';
+  clone.style.overflow = 'visible';
+  clone.querySelectorAll('.tabla-encabezado-fijo th').forEach(th => {
+    th.style.position = 'static';
+  });
+
+  clone.querySelectorAll('input').forEach(inp => {
+    if (inp.type === 'checkbox') {
+      const span = document.createElement('span');
+      span.textContent = inp.checked ? '✅' : '❌';
+      span.style.fontSize = '16px';
+      inp.replaceWith(span);
+    } else if (inp.type === 'number') {
+      const span = document.createElement('span');
+      span.textContent = '$' + inp.value;
+      span.style.fontWeight = '700';
+      span.style.fontSize = '12px';
+      inp.replaceWith(span);
+    }
+  });
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;top:0;left:0;width:1200px;background:#fff;padding:24px;z-index:99999;font-family:Arial,sans-serif;';
+  wrapper.innerHTML = `
+    <div style="text-align:center;margin-bottom:16px;border-bottom:3px solid #4E6E58;padding-bottom:10px;">
+      <h2 style="color:#4E6E58;font-size:22px;font-weight:900;margin:0 0 6px;">${tituloCaptura}</h2>
+      <p style="color:#555;font-size:11px;margin:0;">
+        ${escapeHtml(document.getElementById('info-filtro-impresion').innerText)}
+      </p>
+    </div>
+  `;
+  wrapper.appendChild(clone);
+
+  document.body.appendChild(wrapper);
+
+  html2canvas(wrapper, {
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    windowWidth: 1200
+  }).then(canvas => {
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const prefijo = vistaActual === 'contabilidad' ? 'contabilidad' : 'lista';
+      a.href = url;
+      a.download = `captura_${prefijo}_${new Date().toISOString().slice(0,10)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      mostrarToast('Captura descargada ✓', false);
+    });
+    document.body.removeChild(wrapper);
+  }).catch(err => {
+    console.error(err);
+    document.body.removeChild(wrapper);
+    mostrarToast('Error al generar captura', true);
+  });
+}
+
+/* ============================================================
+ *  PESTAÑAS
+ * ============================================================ */
+function cambiarTab(tab) {
+  vistaActual = tab;
+  const mapTabBtn = { lista: 'tab-lista', contabilidad: 'tab-contab', reportes: 'tab-reportes' };
+  ['lista', 'contabilidad', 'reportes'].forEach(t => {
+    document.getElementById('vista-' + t).classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById(mapTabBtn[t]);
+    if (btn) btn.classList.toggle('activo', t === tab);
+  });
+  if (tab === 'contabilidad') recalcularContabilidad();
+  if (tab === 'reportes') actualizarResumenReportes();
+}
+
+/* ============================================================
+ *  UTILIDADES
+ * ============================================================ */
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let toastTimer = null;
+function mostrarToast(msg, esError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!esError);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
 </body>
 </html>
